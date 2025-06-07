@@ -1,11 +1,6 @@
 services:
-  - type: web
-    name: tts-app
-    runtime: python
+  - type: worker
+    name: tts-worker
+    env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
-    envVars:
-      - key: PORT
-        value: 10000  # fallback default
-    plan: starter
-    autoDeploy: true
