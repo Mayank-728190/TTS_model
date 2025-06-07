@@ -6,6 +6,6 @@ services:
     startCommand: python app.py
     envVars:
       - key: PORT
-        value: 10000  # Render uses this automatically; set a default just in case
+        value: 10000  # fallback default
     plan: starter
-    autoDep
+    autoDeploy: true
