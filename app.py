@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 try:
     import TTS.tts.layers.xtts.gpt as gpt_module
     from transformers import GenerationMixin
-    
+
     # Save original class reference
     OriginalGPT2InferenceModel = gpt_module.GPT2InferenceModel
 
@@ -25,27 +25,27 @@ try:
         def __init__(self, *args, **kwargs):
             # Call original constructor with all parameters
             super().__init__(*args, **kwargs)
-            
+
             # Required attributes for GenerationMixin
             self.generation_config = GenerationConfig()  # Initialize with default config
             self.main_input_name = "input_ids"
-        
+
         # Implement required method for GenerationMixin
         def prepare_inputs_for_generation(self, input_ids, **kwargs):
             # Create a copy of kwargs to avoid modifying the original
             model_kwargs = kwargs.copy()
-            
+
             # Remove arguments that shouldn't be passed to the model
             model_kwargs.pop("use_cache", None)
             model_kwargs.pop("past_key_values", None)
-            
+
             # Call the original method if it exists, otherwise use default behavior
             if hasattr(super(), "prepare_inputs_for_generation"):
                 return super().prepare_inputs_for_generation(input_ids, **model_kwargs)
-            
+
             # Default implementation
             return {"input_ids": input_ids, **model_kwargs}
-    
+
     # Apply patch to module
     gpt_module.GPT2InferenceModel = PatchedGPT2InferenceModel
     logger.info("✅ Successfully patched GPT2InferenceModel with GenerationMixin")
@@ -82,7 +82,7 @@ try:
     state = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
     tts_model.load_state_dict(state["model"])
     tts_model.eval()
-    
+
     # === Load fine-tuned speaker embeddings ===
     latents = torch.load(FINE_TUNED_PATH, map_location="cpu")
     gpt_latent = latents["gpt_latent"]
@@ -97,28 +97,28 @@ def split_text(text, chunk_size=100):
     sentences = []
     current = []
     total_chars = 0
-    
+
     # Split into sentences while preserving punctuation
     for word in text.split():
         current.append(word)
         total_chars += len(word) + 1  # +1 for space
-        
+
         # Check if we have a sentence ending
         if word.endswith(('.', '?', '!', ';')):
             if total_chars > chunk_size or len(current) > 15:
                 sentences.append(' '.join(current))
                 current = []
                 total_chars = 0
-                
+
     # Add any remaining words
     if current:
         sentences.append(' '.join(current))
-    
+
     # If no natural breaks found, split by chunk size
     if not sentences:
         words = text.split()
         return [' '.join(words[i:i+chunk_size]) for i in range(0, len(words), chunk_size)]
-    
+
     return sentences
 
 @app.route("/")
@@ -131,7 +131,7 @@ def speak():
         data = request.get_json()
         if not data:
             return {"error": "No JSON data received"}, 400
-            
+
         text = data.get("text", "").strip()
         language = data.get("language", "en")
 
@@ -139,11 +139,11 @@ def speak():
             return {"error": "Empty input"}, 400
 
         logger.info(f"Generating speech for: '{text[:50]}...' in {language}")
-        
+
         audio_chunks = []
         chunks = split_text(text)
         logger.info(f"Split text into {len(chunks)} chunks")
-        
+
         for i, chunk in enumerate(chunks):
             logger.info(f"Processing chunk {i+1}/{len(chunks)}: '{chunk[:30]}...'")
             with torch.no_grad():
@@ -160,14 +160,15 @@ def speak():
         buffer = io.BytesIO()
         sf.write(buffer, final_audio, 24000, format="WAV")
         buffer.seek(0)
-        
+
         logger.info("Audio generation complete")
         return Response(buffer.read(), mimetype="audio/wav")
-    
+
     except Exception as e:
         logger.error(f"Error in speech generation: {str(e)}", exc_info=True)
         return {"error": f"Internal server error: {str(e)}"}, 500
 
 if __name__ == "__main__":
-    logger.info("Starting TTS server on port 5050")
-    app.run(debug=True, port=5050, use_reloader=False)
+    port = int(os.environ.get("PORT", 5050))
+    logger.info(f"Starting TTS server on port {port}")
+    app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
