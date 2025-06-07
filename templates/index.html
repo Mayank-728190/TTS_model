@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Text to Speech Demo (English, Hindi & Hinglish)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #e2e2ff 0%, #fffbe6 100%);
+      min-height: 100vh;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .tts-card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(30,30,60,0.08);
+      padding: 2rem 2.5rem;
+      width: 95%; max-width: 440px;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    h2 { margin: 0 0 0.5rem 0; color: #4a4a8a; text-align: center; }
+    label { font-weight: 500; margin-bottom: 0.25rem; color: #4a4a6a; }
+    textarea {
+      border-radius: 12px; border: 1px solid #ccc; padding: 0.8em; font-size: 1.1em;
+      width: 100%; resize: vertical; min-height: 80px; transition: border .2s;
+    }
+    textarea:focus { border: 1.5px solid #4a4a8a; outline: none;}
+    button {
+      border-radius: 8px; border: none;
+      padding: 0.7em 1.2em; font-size: 1.1em;
+      background: linear-gradient(90deg, #6e72fc 10%, #ad1deb 90%);
+      color: #fff; font-weight: 700; cursor: pointer;
+      box-shadow: 0 2px 10px #ad1deb22;
+      margin-top: 0.5em;
+      transition: background .2s, box-shadow .2s;
+    }
+    button:active { background: #ad1deb; box-shadow: none;}
+    audio { width: 100%; margin-top: 0.5em;}
+    .download-link {
+      text-align: center; margin-top: 0.5em;
+    }
+    .download-link a {
+      color: #6e72fc; text-decoration: none; font-weight: 500;
+    }
+    .error { color: #d11b2c; font-weight: 500; text-align: center; }
+    .info { color: #4a4a8a; font-size: 1em; text-align: center;}
+    @media (max-width: 480px) {
+      .tts-card { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <form class="tts-card" id="ttsForm" autocomplete="off">
+    <h2>Text to Speech (English, Hindi & Hinglish)</h2>
+    <label for="text">Enter your text:</label>
+    <textarea id="text" required placeholder="Type anything in English, Hindi, or Hinglish...">Namaste! How are you? आप कैसे हैं?</textarea>
+    <!-- If you want to let user select language, uncomment the next block -->
+    <!--
+    <label for="language">Select Language:</label>
+    <select id="language">
+      <option value="en">English</option>
+      <option value="hi">Hindi</option>
+    </select>
+    -->
+    <button id="speakBtn" type="submit">🔊 Speak</button>
+    <audio id="audio" controls style="display:none;"></audio>
+    <div class="download-link" id="downloadDiv" style="display:none;">
+      <a id="downloadLink" href="#" download="tts_output.wav">⬇️ Download Audio</a>
+    </div>
+    <div class="error" id="error" style="display:none;"></div>
+    <div class="info">Language and voice are <b>detected automatically</b>!</div>
+  </form>
+  <script>
+    const form = document.getElementById('ttsForm');
+    const speakBtn = document.getElementById('speakBtn');
+    const audioElem = document.getElementById('audio');
+    const downloadDiv = document.getElementById('downloadDiv');
+    const downloadLink = document.getElementById('downloadLink');
+    const errorDiv = document.getElementById('error');
+    // If you want user to choose language, use: const language = document.getElementById('language').value;
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      errorDiv.style.display = 'none';
+      audioElem.style.display = 'none';
+      downloadDiv.style.display = 'none';
+      speakBtn.disabled = true;
+      speakBtn.textContent = '⏳ Generating...';
+
+      const text = document.getElementById('text').value.trim();
+
+      if (!text) {
+        errorDiv.textContent = "Please enter some text.";
+        errorDiv.style.display = '';
+        speakBtn.disabled = false; speakBtn.textContent = '🔊 Speak';
+        return;
+      }
+
+      try {
+        const response = await fetch('/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text /*, language: language */ })
+        });
+        if (!response.ok) {
+          let msg = "Server error or invalid response.";
+          try {
+            const errJson = await response.json();
+            msg = errJson.error || msg;
+          } catch {}
+          throw new Error(msg + " (Status: " + response.status + ")");
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        audioElem.src = url;
+        audioElem.style.display = '';
+        downloadLink.href = url;
+        downloadDiv.style.display = '';
+      } catch (err) {
+        errorDiv.textContent = "Error: " + err.message +
+          (err.message.includes("Failed to fetch") ? " (Is your backend running and is CORS enabled?)" : "");
+        errorDiv.style.display = '';
+      }
+      speakBtn.disabled = false;
+      speakBtn.textContent = '🔊 Speak';
+    };
+  </script>
+</body>
+</html>
