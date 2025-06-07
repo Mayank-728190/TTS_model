@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: tts-app
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PORT
+        value: 10000  # Render uses this automatically; set a default just in case
+    plan: starter
+    autoDep
